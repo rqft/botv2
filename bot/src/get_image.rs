@@ -102,10 +102,15 @@ pub async fn find_media_urls<'a>(
                 .iter()
                 .any(|x| ["png", "jpg", "jpeg", "webp"].contains(&&**x))
             {
+                let u_url = found
+                    .avatar_url()
+                    .unwrap_or_else(|| found.default_avatar_url());
+
+                use crate::ext::RegexExt;
                 out.push(
-                    found
-                        .avatar_url()
-                        .unwrap_or_else(|| found.default_avatar_url()),
+                    u_url
+                        .str_replace("[?&]size=\\d*$", "")
+                        .str_replace("\\.webp", ".png"),
                 );
             }
         }

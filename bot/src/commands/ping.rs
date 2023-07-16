@@ -1,7 +1,8 @@
-use std::time::Instant;
 use crate::common::{Context, Output};
+use std::time::Instant;
 
 #[poise::command(prefix_command, slash_command, track_edits)]
+/// pong
 pub async fn ping(context: Context<'_>) -> Output {
     let start = Instant::now();
 

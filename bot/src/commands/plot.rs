@@ -1,14 +1,14 @@
 use clap::{arg, command, Parser};
+use exmex::{FloatOpsFactory, MakeOperators, Operator};
 use image::{ImageFormat, Rgba, RgbaImage};
 use poise::serenity_prelude::AttachmentType;
 use std::{borrow::Cow, io::Cursor};
 
-use crate::common::{clap_parse_into, scale, Context, Output};
+use crate::common::{clap_parse_into, gamma, scale, Context, Output};
 
 #[derive(Parser, Debug)]
 #[command()]
 pub struct Args {
-    exprs: String,
     #[arg(short = 's', long = "splot")]
     splot: Option<i32>,
     #[arg(long = "scale")]
@@ -26,7 +26,7 @@ pub struct Args {
 }
 
 pub const COLOURS: [[u8; 4]; 7] = [
-    [0x88, 0x88, 0x88, 0x88],
+    [0x55, 0x55, 0x55, 0xff],
     [0xff, 0x55, 0x55, 0xff],
     [0x55, 0xff, 0x55, 0xff],
     [0x55, 0x55, 0xff, 0xff],
@@ -37,11 +37,31 @@ pub const COLOURS: [[u8; 4]; 7] = [
 
 fn get_output(expr: &str, x: &[f64]) -> std::result::Result<f64, String> {
     use exmex::prelude::*;
-    let e = FlatEx::<f64>::parse(expr).unwrap();
+    #[derive(Clone, Debug)]
+    struct ExtendedOpsFactory;
+    impl MakeOperators<f64> for ExtendedOpsFactory {
+        fn make<'a>() -> Vec<exmex::Operator<'a, f64>> {
+            let mut ops = FloatOpsFactory::<f64>::make();
+
+            ops.push(Operator::make_unary("factorial", |x| gamma(x + 1.0)));
+            ops.push(Operator::make_unary("sign", |x| x.signum()));
+            ops.push(Operator::make_bin(
+                "%",
+                exmex::BinOp {
+                    apply: |x, y| x.rem_euclid(y),
+                    prio: 1,
+                    is_commutative: true,
+                },
+            ));
+
+            ops
+        }
+    }
+    let e = FlatEx::<f64, ExtendedOpsFactory>::parse(expr).map_err(|x| x.to_string())?;
     e.eval_relaxed(x).map_err(|x| x.msg().to_string())
 }
 
-pub async fn graph(input: Args) -> std::result::Result<RgbaImage, String> {
+pub async fn graph(exprs: String, input: Args) -> std::result::Result<RgbaImage, String> {
     dbg!(&input);
 
     let s = input.size.unwrap_or(1024);
@@ -52,7 +72,7 @@ pub async fn graph(input: Args) -> std::result::Result<RgbaImage, String> {
         return Err("invalid splot area".to_string());
     }
 
-    let scalar = input.scale.unwrap_or(1.0);
+    let scalar = input.scale.unwrap_or(50.0);
 
     let mut l = RgbaImage::from_pixel(s, s, image::Rgba([0xff, 0xff, 0xff, 0xff]));
 
@@ -65,8 +85,7 @@ pub async fn graph(input: Args) -> std::result::Result<RgbaImage, String> {
     }
 
     for x in (-w)..w {
-        let z = input
-            .exprs
+        let z = exprs
             .split(';')
             .map(|x| x.to_string())
             .collect::<Vec<String>>();
@@ -155,10 +174,21 @@ pub async fn graph(input: Args) -> std::result::Result<RgbaImage, String> {
 }
 
 #[poise::command(prefix_command, track_edits)]
+/// bootleg desmos, see help for usage
 pub async fn plot(context: Context<'_>, args: Vec<String>) -> Output {
-    let args = clap_parse_into::<Args>(&args)?;
+    let exprs_index = args
+        .iter()
+        .enumerate()
+        .find(|(_, y)| y.starts_with("--"))
+        .map(|x| x.0)
+        .unwrap_or(args.len());
+    let exprs = args[0..exprs_index].join(" ");
+    let rargs = &args[exprs_index..];
 
-    let image = graph(args).await?;
+    dbg!(&exprs);
+    let args = clap_parse_into::<Args>(rargs)?;
+
+    let image = graph(exprs, args).await?;
 
     let mut writer = Cursor::new(Vec::new());
     image.write_to(&mut writer, ImageFormat::Png)?;
@@ -177,6 +207,7 @@ pub async fn plot(context: Context<'_>, args: Vec<String>) -> Output {
 
 #[allow(clippy::too_many_arguments)]
 #[poise::command(slash_command, rename = "plot")]
+/// bootleg desmos
 pub async fn plot_slash(
     context: Context<'_>,
     #[description = "expressions to plot"] exprs: String,
@@ -193,13 +224,12 @@ pub async fn plot_slash(
         domain_min,
         range_max,
         range_min,
-        exprs,
         scale,
         size,
         splot,
     };
 
-    let image = graph(args).await?;
+    let image = graph(exprs, args).await?;
 
     let mut writer = Cursor::new(Vec::new());
     image.write_to(&mut writer, ImageFormat::Png)?;
@@ -213,5 +243,16 @@ pub async fn plot_slash(
         })
         .await?;
 
+    Ok(())
+}
+
+#[poise::command(prefix_command, slash_command)]
+/// run math expression
+pub async fn math(
+    context: Context<'_>,
+    #[description = "the expression"] expr: Vec<String>,
+) -> Output {
+    let value = get_output(&expr.join(" "), &[])?;
+    context.say(value.to_string()).await?;
     Ok(())
 }

@@ -16,4 +16,6 @@ exmex = "0.17.3"
 regex = "1.9.1"
 url = "2.4.0"
 async-recursion = "1.0.4"
-
+imagga = { path = "../imagga" }
+wa = { path = "../wa" }
+tabled = "0.12.2"
