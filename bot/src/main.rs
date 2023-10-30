@@ -73,7 +73,7 @@ pub async fn main() {
                             let url = &new_message.content;
                             if mat.is_match(&url) {
                                 new_message
-                                    .reply(c, mat.replace_all(&url, "https://fxtwitter.com/$2"))
+                                    .reply(c, mat.replace_all(&url, "https://vxtwitter.com/$2"))
                                     .await?;
                             };
                         }
