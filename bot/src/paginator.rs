@@ -1,136 +1,31 @@
-use std::sync::Arc;
+use std::{fmt::Display, marker::PhantomData, sync::Arc};
 
-use ::serenity::{
-    builder::{CreateComponents, CreateEmbed, CreateInteractionResponseData, CreateMessage},
-    http::CacheHttp,
+use crate::common::Context;
+
+use poise::{
+    serenity_prelude::{
+        self as serenity, CacheHttp, CreateComponents, CreateEmbed, CreateInteractionResponseData,
+        CreateMessage, MessageComponentInteraction, ReactionType,
+    },
+    CreateReply, ReplyHandle,
 };
-use poise::serenity_prelude::{self as serenity, MessageComponentInteraction, ReactionType};
-use wa::model::Pod;
-
-use crate::{common::Context, embed_preset::user};
-
-pub async fn paginate_wa(ctx: Context<'_>, pages: Vec<Pod>) -> Result<(), serenity::Error> {
-    // Define some unique identifiers for the navigation buttons
-    let ctx_id = ctx.id();
-    let prev_button_id = format!("{}prev", ctx.id());
-    let next_button_id = format!("{}next", ctx.id());
-    let gone_button_id = format!("{}gone", ctx.id());
-
-    // Send the embed with the first page as content
-    let mut current_page = 0;
-    ctx.send(|b| {
-        b.embed(|b| {
-            let x = user(ctx, b)
-                .title(pages[current_page].title.clone())
-                .footer(|x| x.text(format!("Page {}/{}", current_page, pages.len())));
-
-            if let Some(v) = pages[current_page].subpods.get(0) {
-                if let Some(i) = &v.img {
-                    x.image(i.src.clone());
-                }
-            }
-
-            x.fields(
-                pages[current_page]
-                    .subpods
-                    .iter()
-                    .filter(|x| x.plaintext.is_some())
-                    .map(|x| (x.title.clone(), x.plaintext.clone().unwrap(), true)),
-            )
-        })
-        .components(|b| {
-            b.create_action_row(|b| {
-                b.create_button(|b| b.custom_id(&prev_button_id).label('<'))
-                    .create_button(|b| b.custom_id(&next_button_id).label('>'))
-                    .create_button(|b| {
-                        b.custom_id(&gone_button_id)
-                            .label("X")
-                            .style(poise::serenity_prelude::ButtonStyle::Danger)
-                    })
-            })
-        })
-    })
-    .await?;
-
-    // Loop through incoming interactions with the navigation buttons
-    while let Some(press) = poise::serenity_prelude::CollectComponentInteraction::new(ctx)
-        // We defined our button IDs to start with `ctx_id`. If they don't, some other command's
-        // button was pressed
-        .filter(move |press| press.data.custom_id.starts_with(&ctx_id.to_string()))
-        // Timeout when no navigation button has been pressed for 24 hours
-        .timeout(std::time::Duration::from_secs(3600 * 24))
-        .await
-    {
-        if press.user.id != ctx.author().id {
-            continue;
-        }
-        // Depending on which button was pressed, go to next or previous page
-        if press.data.custom_id == next_button_id {
-            current_page += 1;
-            if current_page >= pages.len() {
-                current_page = 0;
-            }
-        } else if press.data.custom_id == prev_button_id {
-            current_page = current_page.checked_sub(1).unwrap_or(pages.len() - 1);
-        } else if press.data.custom_id == gone_button_id {
-            press
-                .delete_original_interaction_response(ctx.http())
-                .await?;
-        } else {
-            // This is an unrelated button interaction
-            continue;
-        }
-
-        // Update the message with the new page contents
-        press
-            .create_interaction_response(ctx, |b| {
-                b.kind(poise::serenity_prelude::InteractionResponseType::UpdateMessage)
-                    .interaction_response_data(|b| {
-                        b.embed(|b| {
-                            let x = user(ctx, b)
-                                .title(pages[current_page].title.clone())
-                                .footer(|x| {
-                                    x.text(format!("Page {}/{}", current_page, pages.len()))
-                                });
-
-                            if let Some(v) = pages[current_page].subpods.get(0) {
-                                if let Some(i) = &v.img {
-                                    x.image(i.src.clone());
-                                }
-                            }
-
-                            x.fields(
-                                pages[current_page]
-                                    .subpods
-                                    .iter()
-                                    .filter(|x| x.plaintext.is_some())
-                                    .map(|x| (x.title.clone(), x.plaintext.clone().unwrap(), true)),
-                            )
-                        })
-                    })
-            })
-            .await?;
-    }
-
-    Ok(())
-}
 
 pub const MAX_PAGE: usize = usize::MAX;
 pub const MIN_PAGE: usize = 1usize;
 
 pub enum Inter<'a, 'b> {
-    Start(&'a mut CreateMessage<'b>),
+    Start(&'a mut CreateReply<'b>),
     Update(&'a mut CreateInteractionResponseData<'b>),
 }
 
 impl<'a, 'b> Inter<'a, 'b> {
     pub fn content<T>(&mut self, content: T) -> &mut Self
     where
-        T: ToString,
+        T: Display,
     {
         match self {
-            Self::Start(b) => drop(b.content(content)),
-            Self::Update(b) => drop(b.content(content)),
+            Self::Start(b) => drop(b.content(format!("{content}"))),
+            Self::Update(b) => drop(b.content(format!("{content}"))),
         };
 
         self
@@ -145,37 +40,38 @@ impl<'a, 'b> Inter<'a, 'b> {
     }
 }
 
-pub trait OnPage = (for<'b, 'c> Fn(usize, Inter<'b, 'c>) -> Inter<'b, 'c>);
-pub trait OnStop = Fn();
+pub trait GetPage<T> = Fn(usize) -> T;
+pub trait OnPage<T> = (for<'b, 'c> Fn(usize, T, Inter<'b, 'c>) -> Inter<'b, 'c>);
 
 #[derive(Clone)]
-pub struct Paginator<'a, P, S>
+pub struct Paginator<'a, T, P, Q>
 where
-    P: OnPage,
-    S: OnStop,
+    Q: GetPage<T>,
+    P: OnPage<T>,
 {
     pub context: Context<'a>,
-    pub options: PaginatorOptions<'a, P, S>,
+    pub options: PaginatorOptions<T, P, Q>,
     pub stopped: bool,
     pub page: usize,
 }
 
 #[derive(Clone)]
-pub struct PaginatorOptions<'a, P, S>
+pub struct PaginatorOptions<T, P, Q>
 where
-    P: OnPage,
-    S: OnStop,
+    Q: GetPage<T>,
+    P: OnPage<T>,
 {
-    pub on_page: &'a P,
+    pub get_page: Q,
+    pub on_page: P,
     pub is_ephemeral: Option<bool>,
     pub expires: u64,
     pub buttons: Option<Buttons>,
     pub targets: Option<Vec<serenity::UserId>>,
     pub page_limit: usize,
-    pub on_stop: Option<&'a S>,
+    pub none: PhantomData<T>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Buttons {
     // pub custom: Option<FakeButton>,
     pub next: Option<FakeButton>,
@@ -186,7 +82,7 @@ pub struct Buttons {
     pub stop: Option<FakeButton>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct FakeButton {
     label: Option<String>,
     emoji: Option<ReactionType>,
@@ -214,21 +110,23 @@ impl Default for Buttons {
             // custom: Some(CreateButton::default().label("?")),
             // custom: None,
             next: Some(FakeButton::label(">")),
-            next_large: Some(FakeButton::label(">>")),
+            // next_large: Some(FakeButton::label(">>")),
+            next_large: None,
             previous: Some(FakeButton::label("<")),
-            previous_large: Some(FakeButton::label("<<")),
+            // previous_large: Some(FakeButton::label("<<")),
+            previous_large: None,
             // shuffle: None,
             stop: Some(FakeButton::label("X")),
         }
     }
 }
 
-impl<'a, P, S> Paginator<'a, P, S>
+impl<'a, T, P, Q> Paginator<'a, T, P, Q>
 where
-    P: OnPage,
-    S: OnStop,
+    Q: GetPage<T>,
+    P: OnPage<T>,
 {
-    pub fn new(context: Context<'a>, options: PaginatorOptions<'a, P, S>) -> Self {
+    pub fn new(context: Context<'a>, options: PaginatorOptions<T, P, Q>) -> Self {
         Self {
             context,
             options,
@@ -273,13 +171,8 @@ where
         println!("test");
 
         value.create_action_row(|x| {
-            if let Some(prev_large) = self
-                .options
-                .buttons
-                .as_ref()
-                .cloned()
-                .and_then(|x| x.previous_large)
-            {
+            let buttons = self.options.buttons.as_ref().cloned().unwrap_or_default();
+            if let Some(prev_large) = buttons.previous_large {
                 x.create_button(|x| {
                     let y = x
                         .custom_id(self.previous_large_id())
@@ -296,13 +189,7 @@ where
                 });
             }
 
-            if let Some(prev) = self
-                .options
-                .buttons
-                .as_ref()
-                .cloned()
-                .and_then(|x| x.previous)
-            {
+            if let Some(prev) = buttons.previous {
                 x.create_button(|x| {
                     let y = x
                         .custom_id(self.previous_id())
@@ -318,7 +205,7 @@ where
                 });
             }
 
-            if let Some(next) = self.options.buttons.as_ref().cloned().and_then(|x| x.next) {
+            if let Some(next) = buttons.next {
                 x.create_button(|x| {
                     let y = x
                         .custom_id(self.next_id())
@@ -334,13 +221,7 @@ where
                 });
             }
 
-            if let Some(next_large) = self
-                .options
-                .buttons
-                .as_ref()
-                .cloned()
-                .and_then(|x| x.next_large)
-            {
+            if let Some(next_large) = buttons.next_large {
                 x.create_button(|x| {
                     let y = x
                         .custom_id(self.next_large_id())
@@ -373,7 +254,7 @@ where
             //     );
             // }
 
-            if let Some(stop) = self.options.buttons.as_ref().cloned().and_then(|x| x.stop) {
+            if let Some(stop) = buttons.stop {
                 x.create_button(|x| {
                     let y = x
                         .custom_id(self.stop_id())
@@ -393,7 +274,7 @@ where
             x
         });
 
-        dbg!(&value);
+        // dbg!(&value);
 
         value
     }
@@ -412,11 +293,18 @@ where
     pub async fn start(mut self) {
         let value = self
             .context
-            .channel_id()
-            .send_message(self.context.http(), |x| {
-                let v = (self.options.on_page)(self.page, Inter::Start(x));
+            .send(|x| {
+                let data = (self.options.get_page)(self.page);
+                let v = (self.options.on_page)(self.page, data, Inter::Start(x));
+
                 match v {
-                    Inter::Start(v) => v.components(|x| self.components(x)),
+                    Inter::Start(v) => {
+                        if self.options.page_limit != 1 {
+                            v.components(|x| self.components(x))
+                        } else {
+                            v
+                        }
+                    }
                     _ => unreachable!(),
                 }
             })
@@ -437,7 +325,7 @@ where
                 .timeout(std::time::Duration::from_millis(expires))
                 .await
         {
-            dbg!(&press.data.custom_id);
+            // dbg!(&press.data.custom_id);
             if !self
                 .options
                 .targets
@@ -477,7 +365,8 @@ where
                         x.content("")
                             .set_embeds(vec![])
                             .files(std::iter::empty::<serenity::AttachmentType>());
-                        let v = (self.options.on_page)(self.page, Inter::Update(x));
+                        let data = (self.options.get_page)(self.page);
+                        let v = (self.options.on_page)(self.page, data, Inter::Update(x));
 
                         if let Inter::Update(v) = v {
                             v.components(|x| self.components(x))
@@ -513,8 +402,8 @@ where
     pub async fn stop(
         &mut self,
         _press: Arc<MessageComponentInteraction>,
-        value: &serenity::Message,
+        value: &ReplyHandle<'_>,
     ) {
-        value.delete(self.context.http()).await.unwrap();
+        value.delete(self.context).await.unwrap();
     }
 }

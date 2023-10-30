@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Coordinates {
     pub width: u32,
     pub height: u32,
@@ -9,4 +9,3 @@ pub struct Coordinates {
     pub xmax: u32,
     pub ymax: u32,
 }
-

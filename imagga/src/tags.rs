@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Default)]
+#[derive(Serialize, Default, Clone)]
 pub struct TagsOptions {
     pub image_url: Option<String>,
     pub image_upload_id: Option<String>,
@@ -14,23 +14,24 @@ pub struct TagsOptions {
     pub decrease_parents: Option<u8>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct RawTags {
     pub tags: Vec<RawTag>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct RawTag {
     pub confidence: f64,
     pub tag: RawTagContent,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct RawTagContent {
     // d-tag language
     pub en: String,
 }
 
+#[derive(Clone)]
 pub struct Tags {
     pub tags: HashMap<String, f64>,
 }

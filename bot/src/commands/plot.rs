@@ -1,10 +1,9 @@
 use clap::{arg, command, Parser};
-use exmex::{FloatOpsFactory, MakeOperators, Operator};
 use image::{ImageFormat, Rgba, RgbaImage};
 use poise::serenity_prelude::AttachmentType;
 use std::{borrow::Cow, io::Cursor};
 
-use crate::common::{clap_parse_into, gamma, scale, Context, Output};
+use crate::common::{clap_parse_into, get_output, scale, Context, Output};
 
 #[derive(Parser, Debug)]
 #[command()]
@@ -35,34 +34,8 @@ pub const COLOURS: [[u8; 4]; 7] = [
     [0x55, 0xff, 0xff, 0xff],
 ];
 
-fn get_output(expr: &str, x: &[f64]) -> std::result::Result<f64, String> {
-    use exmex::prelude::*;
-    #[derive(Clone, Debug)]
-    struct ExtendedOpsFactory;
-    impl MakeOperators<f64> for ExtendedOpsFactory {
-        fn make<'a>() -> Vec<exmex::Operator<'a, f64>> {
-            let mut ops = FloatOpsFactory::<f64>::make();
-
-            ops.push(Operator::make_unary("factorial", |x| gamma(x + 1.0)));
-            ops.push(Operator::make_unary("sign", |x| x.signum()));
-            ops.push(Operator::make_bin(
-                "%",
-                exmex::BinOp {
-                    apply: |x, y| x.rem_euclid(y),
-                    prio: 1,
-                    is_commutative: true,
-                },
-            ));
-
-            ops
-        }
-    }
-    let e = FlatEx::<f64, ExtendedOpsFactory>::parse(expr).map_err(|x| x.to_string())?;
-    e.eval_relaxed(x).map_err(|x| x.msg().to_string())
-}
-
 pub async fn graph(exprs: String, input: Args) -> std::result::Result<RgbaImage, String> {
-    dbg!(&input);
+    // dbg!(&input);
 
     let s = input.size.unwrap_or(1024);
 
@@ -102,7 +75,7 @@ pub async fn graph(exprs: String, input: Args) -> std::result::Result<RgbaImage,
                 continue;
             }
 
-            let y: f64 = get_output(dy.unwrap(), &[x as f64 / scalar])? * scalar;
+            let y: f64 = get_output(dy.unwrap(), &[x as f64 / scalar], &["x"])? * scalar;
             // dbg!(x, y);
 
             if y > (h as f64) || y < (-h as f64) || y.is_infinite() || y.is_nan() {
@@ -112,22 +85,22 @@ pub async fn graph(exprs: String, input: Args) -> std::result::Result<RgbaImage,
             let dm = input
                 .domain_min
                 .clone()
-                .and_then(|v| get_output(&v, &[x as f64, y]).ok());
+                .and_then(|v| get_output(&v, &[x as f64, y], &["x", "y"]).ok());
 
             let dx = input
                 .domain_max
                 .clone()
-                .and_then(|v| get_output(&v, &[x as f64, y]).ok());
+                .and_then(|v| get_output(&v, &[x as f64, y], &["x", "y"]).ok());
 
             let rm = input
                 .range_min
                 .clone()
-                .and_then(|v| get_output(&v, &[x as f64, y]).ok());
+                .and_then(|v| get_output(&v, &[x as f64, y], &["x", "y"]).ok());
 
             let rx = input
                 .range_max
                 .clone()
-                .and_then(|v| get_output(&v, &[x as f64, y]).ok());
+                .and_then(|v| get_output(&v, &[x as f64, y], &["x", "y"]).ok());
 
             if (dm.is_some() && dm > Some(x as f64))
                 || (dx.is_some() && dx < Some(x as f64))
@@ -185,7 +158,7 @@ pub async fn plot(context: Context<'_>, args: Vec<String>) -> Output {
     let exprs = args[0..exprs_index].join(" ");
     let rargs = &args[exprs_index..];
 
-    dbg!(&exprs);
+    // dbg!(&exprs);
     let args = clap_parse_into::<Args>(rargs)?;
 
     let image = graph(exprs, args).await?;
@@ -252,7 +225,7 @@ pub async fn math(
     context: Context<'_>,
     #[description = "the expression"] expr: Vec<String>,
 ) -> Output {
-    let value = get_output(&expr.join(" "), &[])?;
+    let value = get_output(&expr.join(" "), &[], &[])?;
     context.say(value.to_string()).await?;
     Ok(())
 }

@@ -118,7 +118,7 @@ pub async fn find_media_urls<'a>(
         let emoji_regex = Regex::new("<a?:.+:(\\d+)>").expect("guaranteed valid regex?");
 
         if let Some(cap) = emoji_regex.captures(txt) {
-            if let Some(v) = cap.get(0) {
+            if let Some(v) = cap.get(1) {
                 if kind
                     .iter()
                     .any(|x| ["png", "jpg", "jpeg", "webp", "gif"].contains(&&**x))
@@ -134,7 +134,7 @@ pub async fn find_media_urls<'a>(
 
         let unicode_emoji_regex = Regex::new("\\p{Emoji}").expect("nope.");
 
-        if let Some(cap) = dbg!(unicode_emoji_regex.captures(txt)) {
+        if let Some(cap) = unicode_emoji_regex.captures(txt) {
             if let Some(v) = cap.get(0) {
                 if kind
                     .iter()

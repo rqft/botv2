@@ -1,10 +1,21 @@
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+    ops::{Div, Rem},
+};
+
 use clap::{CommandFactory, FromArgMatches};
+use exmex::{FloatOpsFactory, MakeOperators, Operator};
 use imagga::Imagga;
+use ucd::Ucd;
 use wa::Wolfram;
 
 pub struct Data {
     pub imagga: Imagga,
     pub wolfram: Wolfram,
+    pub req: reqwest::Client,
+    pub ucd: Ucd,
 }
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = ::poise::Context<'a, Data, Error>;
@@ -120,3 +131,163 @@ pub fn gamma(x: f64) -> f64 {
         s * TWO_SQRT_E_OVER_PI * ((x - 0.5 + GAMMA_R) / std::f64::consts::E).powf(x - 0.5)
     }
 }
+
+pub fn get_output(expr: &str, x: &[f64], names: &[&str]) -> std::result::Result<f64, String> {
+    use exmex::prelude::*;
+    #[derive(Clone, Debug)]
+    struct ExtendedOpsFactory;
+    impl MakeOperators<f64> for ExtendedOpsFactory {
+        fn make<'a>() -> Vec<exmex::Operator<'a, f64>> {
+            let mut ops = FloatOpsFactory::<f64>::make();
+
+            ops.push(Operator::make_unary("factorial", |x| gamma(x + 1.0)));
+            ops.push(Operator::make_unary("sign", |x| x.signum()));
+
+            ops.push(Operator::make_bin(
+                "%",
+                exmex::BinOp {
+                    apply: |x, y| x.rem_euclid(y),
+                    prio: 1,
+                    is_commutative: true,
+                },
+            ));
+
+            ops
+        }
+    }
+    let e = FlatEx::<f64, ExtendedOpsFactory>::parse(&format!("(0*({}))+{expr}", names.join("+")))
+        .map_err(|x| x.to_string())?;
+    e.eval_relaxed(x).map_err(|x| x.msg().to_string())
+}
+
+const Y: &str = "Yes";
+const N: &str = "No";
+
+pub const fn yn(t: bool) -> &'static str {
+    if t {
+        Y
+    } else {
+        N
+    }
+}
+
+pub struct Desc(String);
+
+impl Desc {
+    pub const fn new() -> Self {
+        Desc(String::new())
+    }
+
+    pub fn nl(&mut self) -> &mut Self {
+        self.0 += "\n";
+        self
+    }
+
+    pub fn field(&mut self, field: impl Display, value: impl Display) -> &mut Self {
+        self.0 += &format!("{}: {}\n", field, value);
+        self
+    }
+
+    pub fn field_quote(&mut self, field: impl Display, value: impl Display) -> &mut Self {
+        self.0 += &format!(
+            "\u{200b}\u{2001}\u{200b}\u{2001}\u{200b}{}: {}\n",
+            field, value
+        );
+        self
+    }
+
+    pub fn emoji(
+        &mut self,
+        emoji: impl Display,
+        field: impl Display,
+        value: impl Display,
+    ) -> &mut Self {
+        self.0 += &format!("{} {}: {}\n", emoji, field, value);
+        self
+    }
+
+    pub fn finish(self) -> String {
+        self.0
+    }
+}
+
+pub struct FrequencyTable<T>(HashMap<T, usize>)
+where
+    T: Hash + Eq + PartialEq;
+
+impl<T> FrequencyTable<T>
+where
+    T: Hash + Eq + PartialEq,
+{
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    pub fn add(&mut self, k: T) -> &mut Self {
+        if let Some(t) = self.0.get(&k) {
+            self.0.insert(k, t + 1);
+        } else {
+            self.0.insert(k, 1);
+        }
+
+        self
+    }
+}
+
+impl<T> IntoIterator for FrequencyTable<T>
+where
+    T: Hash + Eq + PartialEq,
+{
+    type Item = (T, usize);
+    type IntoIter = std::collections::hash_map::IntoIter<T, usize>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+pub trait AsVec<T> {
+    fn as_vec<F>(self, f: F) -> std::vec::IntoIter<T>
+    where
+        Self: Sized,
+        F: FnOnce(Vec<T>) -> Vec<T>;
+}
+
+impl<T, U> AsVec<T> for U
+where
+    U: Iterator<Item = T>,
+{
+    fn as_vec<F>(self, f: F) -> std::vec::IntoIter<T>
+    where
+        F: FnOnce(Vec<T>) -> Vec<T>,
+    {
+        f(self.collect::<Vec<_>>()).into_iter()
+    }
+}
+
+pub fn format_radix<T>(mut x: T, radix: T) -> String
+where
+    T: TryInto<u32> + TryFrom<u32> + Rem<T, Output = T> + Div<T, Output = T> + PartialEq + Copy,
+    <T as TryInto<u32>>::Error: Debug,
+    <T as TryFrom<u32>>::Error: Debug,
+{
+    let mut result = vec![];
+
+    loop {
+        let m = x % radix;
+        x = x / radix;
+
+        // will panic if you use a bad radix (< 2 or > 36).
+        result
+            .push(std::char::from_digit(m.try_into().unwrap(), radix.try_into().unwrap()).unwrap());
+        if x == T::try_from(0u32).unwrap() {
+            break;
+        }
+    }
+    result.into_iter().rev().collect()
+}
+
+pub const TAIL: &str = "\u{276f}";
+pub const TAB: &str = "\u{2003}\u{200b}";
+pub const DELVE: &str = "├─";
+pub const DERIVE: &str = "└─";
+pub const BAR: &str = " │";

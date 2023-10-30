@@ -1,17 +1,19 @@
-use barcodes::{Barcodes, BarcodesOptions};
-pub use categories::{Categories, CategoriesOptions, RawCategories};
-pub use categorizers::Categorizers;
-use colors::{Colors, ColorsOptions};
-pub use croppings::{Croppings, CroppingsOptions};
-pub use error::Error;
-use faces_detections::{FacesDetections, FacesDetectionsOptions};
-use faces_similarity::{FacesSimilarity, FacesSimilarityOptions};
-pub use output::RawOutput;
-pub use tags::{RawTags, Tags, TagsOptions};
+pub use self::{
+    barcodes::{Barcodes, BarcodesOptions},
+    categories::{Categories, CategoriesOptions, RawCategories},
+    categorizers::Categorizers,
+    colors::{Colors, ColorsOptions},
+    croppings::{Croppings, CroppingsOptions},
+    error::Error,
+    faces_detections::{FacesDetections, FacesDetectionsOptions},
+    faces_similarity::{FacesSimilarity, FacesSimilarityOptions},
+    output::RawOutput,
+    tags::{RawTags, Tags, TagsOptions},
+    text::{Text, TextOptions},
+    usage::{Usage, UsageOptions},
+};
 
 use reqwest::Client;
-use text::{Text, TextOptions};
-use usage::{Usage, UsageOptions};
 
 pub mod barcodes;
 pub mod categories;
@@ -183,7 +185,7 @@ impl Imagga {
             .text()
             .await?;
 
-        dbg!(&text);
+        // dbg!(&text);
         serde_json::from_str::<RawOutput<Text>>(&text)
             .unwrap()
             .result()

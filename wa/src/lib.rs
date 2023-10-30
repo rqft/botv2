@@ -1,4 +1,7 @@
+use std::fmt::Display;
+
 use model::{QueryOptions, QueryOutputHolder};
+use reqwest::StatusCode;
 
 pub mod model;
 pub struct Wolfram {
@@ -23,5 +26,28 @@ impl Wolfram {
             .await?
             .json()
             .await
+    }
+
+    pub async fn short_answer(
+        &self,
+        input: impl Display,
+        units: impl Display,
+    ) -> Result<Option<String>, reqwest::Error> {
+        let r = self
+            .client
+            .get("https://api.wolframalpha.com/v1/result")
+            .query(&[
+                ("appid", &self.app_id),
+                ("i", &format!("{input}")),
+                ("units", &format!("{units}")),
+            ])
+            .send()
+            .await?;
+
+        if r.status() == StatusCode::NOT_IMPLEMENTED {
+            return Ok(None);
+        }
+
+        r.text().await.map(Some)
     }
 }

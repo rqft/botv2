@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct CroppingsOptions {
     pub image_url: Option<String>,
     pub image_upload_id: Option<String>,
@@ -10,12 +10,12 @@ pub struct CroppingsOptions {
     // image_result: Option<u8>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Croppings {
     pub croppings: Vec<Cropping>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Cropping {
     pub target_height: u32,
     pub target_width: u32,

@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct BarcodesOptions {
     pub image_url: Option<String>,
     pub image_upload_id: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Barcodes {
     pub barcodes: Vec<Barcode>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Barcode {
     pub data: String,
     #[serde(rename = "type")]
