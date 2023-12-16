@@ -19,7 +19,7 @@ pub struct Data {
 }
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = ::poise::Context<'a, Data, Error>;
-pub type Output = Result<(), Error>;
+pub type Output<T = ()> = Result<T, Error>;
 
 pub fn scale<T>(v: T, [xn, xm]: [T; 2], [yn, ym]: [T; 2]) -> T
 where
@@ -246,6 +246,7 @@ where
 }
 
 pub trait AsVec<T> {
+    #[allow(clippy::wrong_self_convention)]
     fn as_vec<F>(self, f: F) -> std::vec::IntoIter<T>
     where
         Self: Sized,

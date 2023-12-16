@@ -107,11 +107,13 @@ pub async fn find_media_urls<'a>(
                     .unwrap_or_else(|| found.default_avatar_url());
 
                 use crate::ext::RegexExt;
-                out.push(
-                    u_url
-                        .str_replace("[?&]size=\\d*$", "")
-                        .str_replace("\\.webp", ".png"),
-                );
+                if !in_search {
+                    out.push(
+                        u_url
+                            .str_replace("[?&]size=\\d*$", "")
+                            .str_replace("\\.webp", ".png"),
+                    );
+                }
             }
         }
 
@@ -140,10 +142,12 @@ pub async fn find_media_urls<'a>(
                     .iter()
                     .any(|x| ["png", "jpg", "jpeg", "webp", "gif"].contains(&&**x))
                 {
-                    out.push(format!(
-                        "https://cdn.notsobot.com/twemoji/512x512/{}.png",
-                        to_code_point_for_twemoji(v.as_str())
-                    ))
+                    if !in_search {
+                        out.push(format!(
+                            "https://cdn.notsobot.com/twemoji/512x512/{}.png",
+                            to_code_point_for_twemoji(v.as_str())
+                        ))
+                    }
                 }
             }
         }

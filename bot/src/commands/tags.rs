@@ -52,14 +52,7 @@ pub async fn tags(context: Context<'_>, image_url: Option<String>) -> Output {
     .to_string();
 
     context
-        .send(|x| {
-            x.embed(|x| {
-                user(context, x)
-                    .title("Image Tags")
-                    .description(format!("```hs\n{}\n```", str))
-                    .thumbnail(url)
-            })
-        })
+        .send(|x| x.content(format!("Image Tags ([image](<{url}>))\n```hs\n{str}\n```")))
         .await?;
 
     Ok(())

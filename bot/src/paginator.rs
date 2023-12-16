@@ -4,8 +4,8 @@ use crate::common::Context;
 
 use poise::{
     serenity_prelude::{
-        self as serenity, CacheHttp, CreateComponents, CreateEmbed, CreateInteractionResponseData,
-        CreateMessage, MessageComponentInteraction, ReactionType,
+        self as serenity, AttachmentType, CacheHttp, CreateComponents, CreateEmbed,
+        CreateInteractionResponseData, CreateMessage, MessageComponentInteraction, ReactionType,
     },
     CreateReply, ReplyHandle,
 };
@@ -36,6 +36,15 @@ impl<'a, 'b> Inter<'a, 'b> {
             Self::Start(b) => drop(b.embed(f)),
             Self::Update(b) => drop(b.embed(f)),
         }
+        self
+    }
+
+    pub fn attachments<'c: 'a + 'b>(&mut self, a: Vec<AttachmentType<'c>>) -> &mut Self {
+        match self {
+            Self::Start(b) => a.into_iter().for_each(|x| drop(b.attachment(x))),
+            Self::Update(b) => drop(b.files(a)),
+        }
+
         self
     }
 }

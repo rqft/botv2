@@ -1,4 +1,5 @@
-#![feature(trait_alias, async_closure)]
+#![feature(trait_alias)]
+#![allow(warnings)]
 use std::time::Duration;
 
 use common::{Data, Error};
@@ -7,6 +8,7 @@ use regex::Regex;
 use serenity::builder::CreateAllowedMentions;
 
 mod args;
+pub mod chart;
 mod commands;
 mod common;
 mod embed_preset;
@@ -31,18 +33,19 @@ pub async fn main() {
                 commands::plot::math(),
                 commands::wolfram_alpha::wa(),
                 commands::wolfram_alpha::answer(),
-                commands::wolfram_alpha::steps(),
-                commands::test::test(),
+                // commands::wolfram_alpha::steps(),
+                commands::test::cli(),
                 commands::combine::combine(),
-                commands::gplot::gplot(),
-                commands::gplot::gplot_slash(),
+                // commands::gplot::gplot(),
+                // commands::gplot::gplot_slash(),
                 commands::info::info(),
                 commands::colours::colors(),
                 commands::rng::flip(),
                 commands::rng::roll(),
                 commands::rng::pick(),
                 commands::latex::latex(),
-                commands::test::crame(),
+                // commands::test::s(),
+                // commands::plot::plot2(),
             ],
             allowed_mentions: Some(
                 CreateAllowedMentions::default()
@@ -62,26 +65,7 @@ pub async fn main() {
             reply_callback: Some(|_, y| {
                 y.allowed_mentions(|x| x.replied_user(false)).reply(true);
             }),
-            event_handler: |c, e, v, u| {
-                Box::pin(async move {
-                    if let Event::Message { new_message } = e {
-                        if new_message.guild_id.map(|x| x.0) == Some(1028450117512085616)
-                            || new_message.guild_id.is_none()
-                        {
-                            let mat =
-                                Regex::new("https?:\\/\\/(x\\.com|twitter\\.com)\\/(.+)").unwrap();
-                            let url = &new_message.content;
-                            if mat.is_match(&url) {
-                                new_message
-                                    .reply(c, mat.replace_all(&url, "https://vxtwitter.com/$2"))
-                                    .await?;
-                            };
-                        }
-                    };
-
-                    Ok(())
-                })
-            },
+            event_handler: |c, e, v, u| Box::pin(async move { Ok(()) }),
 
             ..Default::default()
         })
@@ -89,7 +73,13 @@ pub async fn main() {
         .intents(serenity::model::gateway::GatewayIntents::all())
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                // for c in ctx.http.get_global_application_commands().await? {
+                //     println!("+ {}", c.name);
+                //     ctx.http.delete_global_application_command(c.id.0).await?;
+                //     println!("- {}", c.name);
+                // }
+                poise::builtins::register_globally(ctx, &framework.options().commands).await?; // add back later
+                println!("ok!");
                 Ok(Data {
                     ucd: ucd::Ucd::new(),
                     req: reqwest::Client::new(),

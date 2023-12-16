@@ -24,25 +24,26 @@ pub async fn ocr(context: Context<'_>, image_url: Option<String>) -> Output {
 
     context
         .send(|x| {
-            x.embed(|x| {
-                let y = user(context, x).title("Image Text").thumbnail(url);
-
-                for text in text.text {
-                    y.field(
-                        format!(
-                            "{}, {} ({}x{})",
-                            text.coordinates.xmin,
-                            text.coordinates.ymin,
-                            text.coordinates.width,
-                            text.coordinates.height
-                        ),
-                        text.data,
-                        true,
-                    );
-                }
-
-                y
-            })
+            x.content(format!(
+                "Image Text ([image](<{}>))\n{}",
+                url,
+                text.text
+                    .into_iter()
+                    .map(|x| format!(
+                        "{}, {} ({}x{})\n{}",
+                        x.coordinates.xmin,
+                        x.coordinates.ymin,
+                        x.coordinates.width,
+                        x.coordinates.height,
+                        x.data
+                            .lines()
+                            .map(|x| "> ".to_string() + x)
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ))
         })
         .await?;
 

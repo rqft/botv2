@@ -54,12 +54,9 @@ pub async fn categories(context: Context<'_>, image_url: Option<String>) -> Outp
 
     context
         .send(|x| {
-            x.embed(|x| {
-                user(context, x)
-                    .title("Image Categories")
-                    .description(format!("```hs\n{}\n```", str))
-                    .thumbnail(url)
-            })
+            x.content(format!(
+                "Image Categories ([image](<{url}>))\n```hs\n{str}\n```"
+            ))
         })
         .await?;
 

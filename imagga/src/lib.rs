@@ -186,9 +186,7 @@ impl Imagga {
             .await?;
 
         // dbg!(&text);
-        serde_json::from_str::<RawOutput<Text>>(&text)
-            .unwrap()
-            .result()
+        serde_json::from_str::<RawOutput<Text>>(&text)?.result()
     }
 
     // skip: similar_images_categories, similar_images_colors, similar_images_categories_short, remove_background, uploads, tickets, batches

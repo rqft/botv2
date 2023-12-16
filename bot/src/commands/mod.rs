@@ -1,7 +1,7 @@
 pub mod categories;
 pub mod colours;
 pub mod combine;
-pub mod gplot;
+
 pub mod image_url;
 pub mod info;
 pub mod latex;

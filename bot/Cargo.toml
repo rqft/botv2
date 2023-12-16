@@ -33,3 +33,4 @@ fraction = "0.13.1"
 rand = "0.8.5"
 reqwest = { version = "0.11.20", features = ["json"] }
 futures = "0.3.28"
+plotters = "0.3.5"

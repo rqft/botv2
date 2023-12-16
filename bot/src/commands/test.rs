@@ -1,83 +1,105 @@
-use std::marker::PhantomData;
+use std::{borrow::Cow, io::Cursor, marker::PhantomData};
 
-use crate::{
-    common::{Context, Output},
-    paginator::{Buttons, Inter, Paginator, PaginatorOptions},
-};
+use image::{ImageBuffer, ImageFormat, Rgba, RgbaImage};
+use plotters::prelude::*;
+use poise::serenity_prelude::AttachmentType;
+
+use crate::common::{Context, Output};
 
 #[poise::command(prefix_command, track_edits)]
 /// pong
-pub async fn test(context: Context<'_>) -> Output {
-    let pa = Paginator::new(
-        context,
-        PaginatorOptions {
-            buttons: Some(Buttons::default()),
-            expires: 1000 * 60 * 5,
-            is_ephemeral: Some(false),
-            get_page: std::convert::identity,
-            on_page: |_: usize, v: usize, mut p: Inter| {
-                match v {
-                    1 => p.content("ok, 1"),
-                    2 => p.content("not ok, 2"),
-                    3 => p.embed(|b| b.title("ok, 3")),
-                    _ => unreachable!(),
-                };
+pub async fn cli(context: Context<'_>, expr: Vec<String>) -> Output {
+    if context.author().id != 504698587221852172u64 {
+        return Ok(());
+    }
 
-                p
-            },
-            page_limit: 3,
-            targets: None,
-            none: PhantomData,
-        },
+    let r_expr = expr
+        .iter()
+        .cloned()
+        .filter(|y| !y.starts_with("-f="))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let r_fmt = expr.iter().find_map(|y| y.strip_prefix("-f="));
+
+    let mut cmd = std::process::Command::new(
+        // gl!
+        r"C:\Program Files\Wolfram Research\WolframScript\wolframscript.exe",
     );
+    cmd.arg("-cloud").args(["-code", &r_expr]);
 
-    pa.start().await;
+    if let Some(fmt) = r_fmt {
+        println!("-format {fmt}");
+        cmd.args(["-format", fmt]);
+    }
+
+    println!("{cmd:?}");
+
+    let o = cmd.output()?;
+
+    if let Some(fmt) = r_fmt {
+        context
+            .send(|x| {
+                x.reply(true).attachment(AttachmentType::Bytes {
+                    data: Cow::Borrowed(&o.stdout),
+                    filename: "output.png".to_string(),
+                })
+            })
+            .await?;
+    } else {
+        let mut bytes = String::from_utf8(cmd.output()?.stdout)?;
+
+        context.send(|x| x.reply(true).content(bytes)).await?;
+    }
+
     Ok(())
 }
 
-use std::fmt::Write;
-pub const H: &str = "\x1b[";
-pub fn cramers_rule([[a, b, e], [c, d, f]]: [[f64; 3]; 2]) -> String {
-    let mut output = String::new();
-    writeln!(output, "{H}33mSystem:{H}0m");
-    writeln!(output, "{H}31m{a}{H}0mx + {H}31m{b}{H}0my = {H}31m{e}{H}0m\n{H}31m{c}{H}0mx + {H}31m{d}{H}0my = {H}31m{f}{H}0m\n");
+fn plot() -> Output<Cursor<Vec<u8>>> {
+    let mut buf = image::ImageBuffer::<image::Rgb<u8>, _>::new(512, 512);
+    let root = BitMapBackend::with_buffer(&mut buf, (512, 512)).into_drawing_area();
+    root.fill(&WHITE);
 
-    writeln!(output, "{H}33mMatrix:{H}0m");
-    writeln!(output, "[{H}31m{a} {b}{H}0m][x] = [{H}31m{e}{H}0m]");
-    writeln!(output, "[{H}31m{c} {d}{H}0m][y] = [{H}31m{f}{H}0m]\n");
-    writeln!(output, "{H}33mDt{H}0m = det | {H}31m{a} {b}{H}0m");
-    writeln!(output, "         | {H}31m{c} {d}{H}0m");
-    writeln!(
-        output,
-        "{H}33mDt{H}0m = {H}31m{a}{H}0m*{H}31m{d}{H}0m - {H}31m{b}{H}0m*{H}31m{c}{H}0m"
-    );
-    writeln!(output, "   = {} - {}", a * d, b * c);
-    writeln!(output, "   = {}\n", a.mul_add(d, -b * c));
-    writeln!(output, "{H}33mDx{H}0m = det | {H}31m{e} {b}{H}0m");
-    writeln!(output, "         | {H}31m{f} {d}{H}0m");
-    writeln!(
-        output,
-        "{H}33mDx{H}0m = {H}31m{e}{H}0m*{H}31m{d}{H}0m - {H}31m{b}{H}0m*{H}31m{f}{H}0m"
-    );
-    writeln!(output, "   = {} - {}", e * d, b * f);
-    writeln!(output, "   = {}\n", e.mul_add(d, -b * f));
-    writeln!(output, "{H}33mDy{H}0m = det | {H}31m{a} {e}{H}0m");
-    writeln!(output, "         | {H}31m{c} {f}{H}0m");
-    writeln!(
-        output,
-        "{H}33mDy{H}0m = {H}31m{a}{H}0m*{H}31m{f}{H}0m - {H}31m{c}{H}0m*{H}31m{f}{H}0m"
-    );
-    writeln!(output, "   = {} - {}", a * f, c * e);
-    writeln!(output, "   = {}\n", a.mul_add(f, -c * e));
-    writeln!(output, "{H}35mx{H}0m = {H}33mD{H}35mx{H}0m/{H}33mD{H}0m = {H}35m{}{H}0m / {H}33m{}{H}0m = {H}32m{}{H}0m", e.mul_add(d, -b * f), a.mul_add(d, -b * c), e.mul_add(d, -b * f) / a.mul_add(d, -b * c));
-    writeln!(output, "{H}35my{H}0m = {H}33mD{H}35my{H}0m/{H}33mD{H}0m = {H}35m{}{H}0m / {H}33m{}{H}0m = {H}32m{}{H}0m", a.mul_add(f, -c * e), a.mul_add(d, -b * c), a.mul_add(f, -c * e) / a.mul_add(d, -b * c));
+    let mut chart = ChartBuilder::on(&root)
+        .caption("f(x, z) = x^2 + z^2", ("serif", 30).into_font())
+        .margin(5)
+        .x_label_area_size(30)
+        .y_label_area_size(30)
+        .build_cartesian_3d((-3.0..3.0).step(0.1), -3.0..3.0, (-3.0..3.0).step(0.1))?;
 
-    output
-}
+    chart.with_projection(|mut pb| {
+        pb.yaw = 0.5;
+        pb.scale = 0.9;
+        pb.into_matrix()
+    });
 
-#[poise::command(prefix_command, track_edits)]
-pub async fn crame(context: Context<'_>, a: f64, b: f64, e: f64, c: f64, d: f64, f: f64) -> Output {
-    let o = cramers_rule([[a, b, e], [c, d, f]]);
-    context.say(format!("```ansi\n{o}\n```")).await?;
-    Ok(())
+    chart
+        .configure_axes()
+        .light_grid_style(BLACK.mix(0.15))
+        .max_light_lines(3)
+        .draw();
+
+    chart
+        .draw_series(
+            SurfaceSeries::xoz(
+                (-30..30).map(|f| f as f64 / 10.0),
+                (-30..30).map(|f| f as f64 / 10.0),
+                |x, z| (x * x + z * z).cos(),
+            )
+            .style(BLUE.mix(0.2).filled()),
+        )?
+        .label("Surface")
+        .legend(|(x, y)| Rectangle::new([(x + 5, y - 5), (x + 15, y + 5)], BLUE.mix(0.5).filled()));
+
+    chart.configure_series_labels().border_style(BLACK).draw()?;
+
+    root.present()?;
+
+    drop(chart);
+    drop(root);
+
+    let mut writer = Cursor::new(Vec::new());
+
+    buf.write_to(&mut writer, ImageFormat::Png)?;
+
+    Ok(writer)
 }

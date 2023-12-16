@@ -87,8 +87,14 @@ pub async fn parse(context: Context<'_>, text: String) -> Vec<Target> {
             .users()
             .iter()
             .filter(|x| {
-                uid.replace_all(&text, "") == x.id.to_string()
-                    || x.tag().to_lowercase().contains(&text.to_lowercase())
+                (uid.replace_all(&text, "") == x.id.to_string()
+                    || x.tag().to_lowercase().contains(&text.to_lowercase()))
+            })
+            .filter(|x| {
+                context
+                    .guild()
+                    .map(|y| y.members.contains_key(&x.id))
+                    .unwrap_or(x.id == context.author().id)
             })
             .map(|x| {
                 Target::User(
