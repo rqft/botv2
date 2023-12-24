@@ -11,7 +11,7 @@ use crate::{
 #[poise::command(prefix_command, slash_command, track_edits, aliases("tex"))]
 /// render LaTeX
 pub async fn latex(context: Context<'_>, tex: Vec<String>) -> Output {
-    dbg!(1);
+    // dbg!(1);
     let l = tex.join(" ");
 
     /*
@@ -24,12 +24,16 @@ pub async fn latex(context: Context<'_>, tex: Vec<String>) -> Output {
 
     // dbg!(&l);
 
-    let v = format!("formula={}&fsize=99px&fcolor=FFFFFF&mode=0&out=1&remhost=quicklatex.com&preamble\\usepackage{{amsmath}}\n\\usepackage{{amsfonts}}\n\\usepackage{{amssymb}}", l.bytes().map(|x| {
+    let v = format!("formula=\\begin{{align*}}\n{}\n\\end{{align*}}&fsize=99px&fcolor=FFFFFF&mode=0&out=1&remhost=quicklatex.com&preamble=\\usepackage{{amsmath}}\n\\usepackage{{amsfonts}}\n\\usepackage{{amssymb}}&rnd=36.45410576218071", 
+    l.bytes().map(|x| {
         match x {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')' | b' ' => (x as char).to_string(),
-            c => format!("%{:0>2x}", c)
+            c @ b'+' => format!("%{:0>2x}", c),
+            // b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')' | b' ' => (x as char).to_string(),
+            c => (x as char).to_string()
         }
-    }).collect::<Vec<_>>().join(""));
+    }).collect::<Vec<_>>().join("")
+);
+    println!("{v}");
 
     let q = context
         .data()

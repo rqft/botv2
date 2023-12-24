@@ -1,7 +1,7 @@
 use std::{fmt::Display, marker::PhantomData};
 
 use poise::serenity_prelude::{
-    ActivityType, Channel, Emoji, GenericId, Guild, Member, Message, Role, User,
+    ActivityType, Channel, Emoji, EmojiId, GenericId, Guild, Member, Message, Role, User,
 };
 use regex::Regex;
 use serenity::{
@@ -113,6 +113,23 @@ pub async fn parse(context: Context<'_>, text: String) -> Vec<Target> {
         }
     }
 
+    if text.test("<a?:\\w+:\\d{16,}>") {
+        let emoji_id = text
+            .str_replace("<a?:\\w+:(\\d{16,})>", "$1")
+            .parse::<u64>()
+            .unwrap()
+            .into();
+
+        for g in context.serenity_context().cache.guilds().iter() {
+            let test = g.emoji(&context.serenity_context().http, emoji_id).await;
+
+            if let Ok(t) = test {
+                matches.push(Target::Emoji(Box::new(t)));
+                break;
+            }
+        }
+    }
+
     if text.test("^\\d{16,}") {
         matches.push(Target::Snowflake(text.parse::<u64>().unwrap().into()));
     }
@@ -184,6 +201,31 @@ pub async fn gen_page<'a>(
     mut x: CreateEmbed,
 ) -> Result<CreateEmbed, Box<dyn std::error::Error + Send + Sync>> {
     match data {
+        Target::Emoji(e) => {
+            x.title("Emoji Information");
+            let mut txt = Desc::new();
+            txt.emoji(emojis::RichActivity, "**Id**", e.id);
+            txt.emoji(emojis::Pencil, "**Name**", e.id);
+            txt.emoji(
+                emojis::Pictures,
+                "**Animated**",
+                if e.animated { "Yes" } else { "No" },
+            );
+            txt.emoji(
+                if e.available {
+                    emojis::Allow
+                } else {
+                    emojis::Deny
+                },
+                "**Available**",
+                if e.available { "Yes" } else { "No" },
+            );
+            txt.emoji(
+                emojis::Person,
+                "**Managed**",
+                if e.managed { "Yes" } else { "No" },
+            );
+        }
         Target::Text(c) => {
             x.title("Text Information");
             let mut txt = Desc::new();

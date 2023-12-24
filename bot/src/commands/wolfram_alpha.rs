@@ -18,6 +18,8 @@ pub async fn wa(context: Context<'_>, input: Vec<String>) -> Output {
         .query(wa::model::QueryOptions {
             input: input.join(" "),
             format: Some("plaintext,image,minput".to_string()),
+            mag: Some(1.5),
+            width: Some(500),
             ..Default::default()
         })
         .await
