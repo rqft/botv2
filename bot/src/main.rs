@@ -29,7 +29,7 @@ pub async fn main() {
     #[serenity::async_trait]
     impl EventHandler for Handle {
         async fn message(&self, ctx: Context, msg: Message) {
-            if msg.is_own(&ctx) && (msg.mentions_me(&ctx).await.unwrap() || msg.author.id == 504698587221852172)
+            if !msg.is_own(&ctx) && (msg.mentions_me(&ctx).await.unwrap() || msg.author.id == 504698587221852172)
             {
                 let fumreg = Regex::new("v1\\d+@.+?\\b").unwrap();
                 let found = fumreg
