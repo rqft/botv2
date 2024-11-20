@@ -43,7 +43,7 @@ pub async fn main() {
                     })
                     .collect::<Vec<_>>()
                     .join(" | ");
-                msg.reply(ctx, found);
+                msg.reply(ctx, found).await.unwrap();
             }
         }
     }
