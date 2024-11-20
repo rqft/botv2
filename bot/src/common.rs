@@ -292,3 +292,25 @@ pub const TAB: &str = "\u{2003}\u{200b}";
 pub const DELVE: &str = "├─";
 pub const DERIVE: &str = "└─";
 pub const BAR: &str = " │";
+
+pub fn human_bytes<T: Into<f64>>(bytes: T, si: bool) -> String {
+    let u: f64 = if si { 1024.0 } else { 1000.0 };
+    let size = bytes.into();
+
+    if size <= 0.0 {
+        return "0 B".to_string();
+    }
+
+    let base = size.log10() / u.log10();
+
+    let result = format!("{:.1}", u.powf(base - base.floor()),)
+        .trim_end_matches(".0")
+        .to_owned();
+
+    // Add suffix
+    [&result, if si {
+        ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"]
+    } else {
+        ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+    }[base.floor() as usize]].join(" ")
+}

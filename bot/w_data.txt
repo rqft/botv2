@@ -1,0 +1,27 @@
+https://api.wolframalpha.com/v2/query?input=properties+371947263&format=plaintext%2Cimage%2Cminput&width=1500&mag=1.5&appid=AHE6V9-WHRE7W64PX&output=json
+Object {
+    "queryresult": Object {
+        "datatypes": String(""),
+        "didyoumeans": Object {
+            "level": String("high"),
+            "score": String("0.6"),
+            "val": String("371947263"),
+        },
+        "error": Bool(false),
+        "host": String("https://www6b3.wolframalpha.com"),
+        "id": String(""),
+        "inputstring": String("properties 371947263"),
+        "numpods": Number(0),
+        "parseidserver": String("6"),
+        "parsetimedout": Bool(false),
+        "parsetiming": Number(0.11),
+        "recalculate": String(""),
+        "related": String(""),
+        "server": String("6"),
+        "success": Bool(false),
+        "timedout": String(""),
+        "timedoutpods": String(""),
+        "timing": Number(0.35100000000000003),
+        "version": String("2.6"),
+    },
+}

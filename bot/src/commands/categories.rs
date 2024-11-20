@@ -14,7 +14,7 @@ use crate::{
 #[poise::command(prefix_command, slash_command, track_edits)]
 /// get the categories that the bot thinks an image belongs to
 pub async fn categories(context: Context<'_>, image_url: Option<String>) -> Output {
-    let urls = find_media_urls(vec!["png".to_string()], &context, image_url, false).await;
+    let urls = find_media_urls(&["png"], &context, image_url, None).await;
     let url = urls.get(0).ok_or("no media found")?;
 
     // dbg!(url);

@@ -29,7 +29,7 @@ pub async fn roll(context: Context<'_>, amount: Option<u8>, sides: Option<u16>) 
 
 #[poise::command(prefix_command, slash_command, track_edits)]
 /// flip some coins
-pub async fn flip(context: Context<'_>, amount: Option<u8>) -> Output {
+pub async fn coin(context: Context<'_>, amount: Option<u8>) -> Output {
     let a = amount.unwrap_or(1);
 
     context

@@ -6,7 +6,7 @@ use crate::{
 #[poise::command(prefix_command, slash_command, track_edits)]
 /// return an image as-is, enlarges emojis
 pub async fn url(context: Context<'_>, image_url: Option<String>) -> Output {
-    let urls = find_media_urls(vec!["png".to_string()], &context, image_url, false).await;
+    let urls = find_media_urls(&["png"], &context, image_url, None).await;
 
     context
         .say(

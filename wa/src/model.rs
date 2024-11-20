@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+
 #[derive(Serialize, Default)]
 pub struct QueryOptions {
     pub input: String,
@@ -40,7 +41,84 @@ pub struct QueryOutputHolder {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QueryOutput {
     pub success: bool,
-    pub pods: Vec<Pod>,
+    pub pods: Option<Vec<Pod>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Warning {
+    Spellcheck {
+        word: String,
+        suggestion: String,
+        text: String,
+    },
+    Delimiters {
+        text: String,
+    },
+    Translation {
+        phrase: String,
+        trans: String,
+        lang: String,
+        text: String,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DidYouMean {
+    pub score: String,
+    pub level: DidYouMeanLevel,
+    pub val: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged, rename_all = "lowercase")]
+pub enum DidYouMeanLevel {
+    Low,
+    Medium,
+    High,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Assumption {
+    #[serde(rename = "type")]
+    pub kind: AssumptionKind,
+    pub word: Option<String>,
+    pub template: String,
+    pub count: usize,
+    pub values: Vec<AssumptionValue>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AssumptionValue {
+    pub name: String,
+    pub desc: String,
+    pub input: String,
+    pub word: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AssumptionKind {
+    Clash,
+    MultiClash,
+    SubCategory,
+    Attribute,
+    Unit,
+    AngleUnit,
+    Function,
+    ListOrTimes,
+    ListOrNumber,
+    CoordinateSystem,
+    I,
+    NumberBase,
+    MixedFraction,
+    TimeAMOrPM,
+    DateOrder,
+    MortalityYearDOB,
+    TideStation,
+    FormulaSelect,
+    FormulaSolve,
+    FormulaVariable,
+    FormulaVariableOption,
+    FormulaVariableInclude,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -58,6 +136,8 @@ pub struct Subpod {
     pub title: String, // useless?
     pub img: Option<Image>,
     pub plaintext: Option<String>,
+    pub minput: Option<String>,
+    pub moutput: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -72,13 +152,6 @@ pub struct Info {
     pub text: String,
     pub img: Image,
     pub links: Vec<Link>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OneOrMany<T> {
-    One(T),
-    Many(Vec<T>)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

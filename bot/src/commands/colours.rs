@@ -13,7 +13,7 @@ use crate::{
 #[poise::command(prefix_command, slash_command, track_edits, aliases("colours"))]
 /// get colours of an image
 pub async fn colors(context: Context<'_>, image_url: Option<String>) -> Output {
-    let urls = find_media_urls(vec!["png".to_string()], &context, image_url, false).await;
+    let urls = find_media_urls(&["png"], &context, image_url, None).await;
     let url = urls.get(0).ok_or("no media found")?;
 
     // dbg!(url);

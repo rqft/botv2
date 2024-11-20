@@ -1,11 +1,15 @@
-#![feature(trait_alias)]
+#![feature(trait_alias, let_chains)]
 #![allow(warnings)]
 use std::time::Duration;
 
 use common::{Data, Error};
-use poise::{EditTracker, Event, PrefixFrameworkOptions};
+use poise::{serenity_prelude::Message, EditTracker, Event, PrefixFrameworkOptions};
 use regex::Regex;
-use serenity::builder::CreateAllowedMentions;
+use serde_json::Map;
+use serenity::{
+    builder::CreateAllowedMentions,
+    client::{Context, EventHandler},
+};
 
 mod args;
 pub mod chart;
@@ -17,10 +21,34 @@ mod ext;
 mod get_image;
 mod huge_lists;
 mod paginator;
+pub mod sf;
 // mod wrap;
 #[tokio::main]
 pub async fn main() {
+    struct Handle;
+    #[serenity::async_trait]
+    impl EventHandler for Handle {
+        async fn message(&self, ctx: Context, msg: Message) {
+            if msg.is_own(&ctx) && (msg.mentions_me(&ctx).await.unwrap() || msg.author.id == 504698587221852172)
+            {
+                let fumreg = Regex::new("v1\\d+@.+?\\b").unwrap();
+                let found = fumreg
+                    .find_iter(&msg.content)
+                    .enumerate()
+                    .map(|(i, x)| {
+                        format!(
+                            "[fumen {i}](https://qv.rqft.workers.dev/fumen.gif?data={}",
+                            x.as_str()
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" | ");
+                msg.reply(ctx, found);
+            }
+        }
+    }
     let framework = poise::Framework::<Data, Error>::builder()
+        .client_settings(|f| f.event_handler(Handle))
         .options(poise::FrameworkOptions {
             commands: vec![
                 commands::ping::ping(),
@@ -35,17 +63,25 @@ pub async fn main() {
                 commands::wolfram_alpha::answer(),
                 // commands::wolfram_alpha::steps(),
                 commands::test::cli(),
+                commands::test::test(),
                 commands::combine::combine(),
                 // commands::gplot::gplot(),
                 // commands::gplot::gplot_slash(),
                 commands::info::info(),
                 commands::colours::colors(),
-                commands::rng::flip(),
+                commands::rng::coin(),
                 commands::rng::roll(),
                 commands::rng::pick(),
                 commands::latex::latex(),
                 // commands::test::s(),
                 // commands::plot::plot2(),
+                commands::image::invert(),
+                commands::image::flip(),
+                commands::image::flop(),
+                commands::oeis::oeis(),
+                commands::tetr::grid(),
+                commands::tetr::sf(),
+                commands::tetr::fumen(),
             ],
             allowed_mentions: Some(
                 CreateAllowedMentions::default()
@@ -66,8 +102,8 @@ pub async fn main() {
                 y.allowed_mentions(|x| x.replied_user(false)).reply(true);
             }),
             event_handler: |c, e, v, u| Box::pin(async move { Ok(()) }),
-
-            ..Default::default()
+            on_error: |t| Box::pin(async move {}),
+            ..<_>::default()
         })
         .token(dotenv::var("d_token").expect("missing d_token"))
         .intents(serenity::model::gateway::GatewayIntents::all())

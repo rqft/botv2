@@ -1,7 +1,8 @@
-use std::{fmt::Display, marker::PhantomData, sync::Arc};
+use std::{fmt::Display, marker::PhantomData, pin::Pin, sync::Arc};
 
 use crate::common::Context;
 
+use futures::Future;
 use poise::{
     serenity_prelude::{
         self as serenity, AttachmentType, CacheHttp, CreateComponents, CreateEmbed,
@@ -50,7 +51,8 @@ impl<'a, 'b> Inter<'a, 'b> {
 }
 
 pub trait GetPage<T> = Fn(usize) -> T;
-pub trait OnPage<T> = (for<'b, 'c> Fn(usize, T, Inter<'b, 'c>) -> Inter<'b, 'c>);
+pub trait OnPage<T> =
+    (for<'b, 'c> Fn(usize, T, Inter<'b, 'c>) -> Inter<'b, 'c>);
 
 #[derive(Clone)]
 pub struct Paginator<'a, T, P, Q>
@@ -300,10 +302,11 @@ where
     }
 
     pub async fn start(mut self) {
+        let data = (self.options.get_page)(self.page);
         let value = self
             .context
             .send(|x| {
-                let data = (self.options.get_page)(self.page);
+                
                 let v = (self.options.on_page)(self.page, data, Inter::Start(x));
 
                 match v {
@@ -367,6 +370,7 @@ where
     }
 
     pub async fn update(&self, press: Arc<MessageComponentInteraction>) {
+        let data = (self.options.get_page)(self.page);
         press
             .create_interaction_response(self.context.http().clone(), |x| {
                 x.kind(serenity::InteractionResponseType::UpdateMessage)
@@ -374,7 +378,7 @@ where
                         x.content("")
                             .set_embeds(vec![])
                             .files(std::iter::empty::<serenity::AttachmentType>());
-                        let data = (self.options.get_page)(self.page);
+                        
                         let v = (self.options.on_page)(self.page, data, Inter::Update(x));
 
                         if let Inter::Update(v) = v {
