@@ -28,24 +28,7 @@ pub async fn main() {
     struct Handle;
     #[serenity::async_trait]
     impl EventHandler for Handle {
-        async fn message(&self, ctx: Context, msg: Message) {
-            if !msg.is_own(&ctx) && (msg.mentions_me(&ctx).await.unwrap() || msg.author.id == 504698587221852172)
-            {
-                let fumreg = Regex::new("v1\\d+@.+?\\b").unwrap();
-                let found = fumreg
-                    .find_iter(&msg.content)
-                    .enumerate()
-                    .map(|(i, x)| {
-                        format!(
-                            "[fumen {i}](https://qv.rqft.workers.dev/fumen.gif?data={}",
-                            x.as_str()
-                        )
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" | ");
-                msg.reply(ctx, found).await.unwrap();
-            }
-        }
+        
     }
     let framework = poise::Framework::<Data, Error>::builder()
         .client_settings(|f| f.event_handler(Handle))
@@ -81,6 +64,7 @@ pub async fn main() {
                 commands::oeis::oeis(),
                 commands::tetr::grid(),
                 commands::tetr::sf(),
+                commands::tetr::sfce(),
                 commands::tetr::fumen(),
             ],
             allowed_mentions: Some(

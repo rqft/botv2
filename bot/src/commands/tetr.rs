@@ -1,3 +1,4 @@
+use std::process::Command;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
@@ -179,6 +180,60 @@ pub async fn sf(context: Context<'_>, pattern: String, queue: Option<String>) ->
             })
             .await?;
     }
+    Ok(())
+}
+
+#[poise::command(prefix_command, slash_command, track_edits)]
+pub async fn sfce(context: Context<'_>, #[rest] args: String) -> Output {
+    dbg!(1);
+
+    let mut cmd = Command::new(format!(
+        "C:\\Users\\mina\\projects\\sfce\\target\\release\\sfce.exe"
+    ));
+
+    let ag = shlex::split(&args).ok_or("malformed input")?;
+
+    for a in ag {
+        cmd.arg(a);
+    }
+
+    dbg!(&cmd);
+
+    let output = cmd.output().unwrap();
+    dbg!(&output);
+    let out = output.stdout;
+    let err = output.stderr;
+
+    if !out.is_empty() {
+        if out.len() > 2000 {
+            context
+                .send(|x| {
+                    x.attachment(poise::serenity_prelude::AttachmentType::Bytes {
+                        data: out.into(),
+                        filename: "output.txt".to_string(),
+                    })
+                })
+                .await?;
+        } else {
+            context.reply(String::from_utf8(out)?).await?;
+        }
+    }
+
+    if !err.is_empty() {
+        if err.len() > 2000 {
+            context
+                .send(|x| {
+                    x.attachment(poise::serenity_prelude::AttachmentType::Bytes {
+                        data: err.into(),
+                        filename: "error.txt".to_string(),
+                    })
+                })
+                .await?;
+        } else {
+            context.reply(String::from_utf8(err)?).await?;
+        }
+    }
+
     Ok(())
 }
 
